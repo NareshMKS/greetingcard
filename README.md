@@ -1,73 +1,64 @@
-# Welcome to your Lovable project
+# Automatic Greeting Card Generator
 
-## Project info
+A React-based web app that lets you upload a CSV, choose a template, generate personalized greeting cards with configurable AI text, and export them as PNG or PDF.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- **Framework:** React (Vite)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **State:** React Hooks & Context API
+- **CSV:** Client-side parsing
+- **Export:** html2canvas + jsPDF (PNG / PDF)
 
-There are several ways of editing your application.
+## Quick Start
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open [http://localhost:5173](http://localhost:5173). Drag-and-drop `public/sample-recipients.csv` (or [download it](public/sample-recipients.csv)) to try the flow.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## User Flow
 
-**Use GitHub Codespaces**
+1. **Upload CSV** — Drag & drop a `.csv` file (columns: `name`, `occasion`, `tone`, `custom_message`).
+2. **Select template** — Pick a card layout, font, and color palette.
+3. **Generate** — AI greeting text is generated per recipient (placeholder service; wire your own API).
+4. **Preview & download** — View all cards and export as PNG (per card or all) or one PDF.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Project Structure
 
-## What technologies are used for this project?
+```
+src/
+  components/   CSVUploader, TemplateSelector, CardCanvas, CardPreview, OutputGallery
+  services/     csvParser.ts, aiGreetingService.ts
+  context/      AppContext.tsx
+  types/        template.ts, recipient.ts
+  data/         sampleTemplates.ts
+  styles/       index.css
+  App.tsx, main.tsx
+```
 
-This project is built with:
+## AI Integration
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Edit `/src/services/aiGreetingService.ts`:
 
-## How can I deploy this project?
+- Set `AI_PROVIDER_NAME` to your provider (e.g. `'OpenAI'`, `'Anthropic'`).
+- Replace the `generateGreeting` implementation with your API client (fetch/axios to your chosen endpoint).
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Sample CSV
 
-## Can I connect a custom domain to my Lovable project?
+`public/sample-recipients.csv`:
 
-Yes, you can!
+```csv
+name,occasion,tone,custom_message
+Alice,Birthday,Warm,Have an amazing day!
+Bob,Holiday,Formal,Wishing you joy this season.
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Scripts
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- `npm run dev` — Start dev server
+- `npm run build` — Production build
+- `npm run preview` — Preview production build
