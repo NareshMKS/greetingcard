@@ -17,7 +17,6 @@ A React-based web app that lets you upload a CSV, choose a template, generate pe
 npm install
 npm run dev
 ```
-
 Open [http://localhost:5173](http://localhost:5173). Drag-and-drop `public/sample-recipients.csv` (or [download it](public/sample-recipients.csv)) to try the flow.
 
 ## User Flow
