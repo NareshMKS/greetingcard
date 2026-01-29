@@ -11,20 +11,40 @@ import type { CardTemplate } from '../types/template';
 import { parseCSVFile } from '../services/csvParser';
 import { generateEditedImage } from '../services/imageEditService';
 
+function errorToMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const anyErr = err as any;
+    if (typeof anyErr.message === 'string') return anyErr.message;
+    if (typeof anyErr.error === 'string') return anyErr.error;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return 'Unknown error';
+}
+
 export interface AppState {
   recipients: Recipient[];
   selectedTemplate: CardTemplate | null;
+  /** Blob of the uploaded template image (used for generation) */
+  selectedTemplateBlob: Blob | null;
   templates: CardTemplate[];
   generatingRowIndex: number | null;
   /** Preview of the last generated image (right side panel) */
   previewImageUrl: string | null;
   previewRecipientName: string | null;
+  previewRowIndex: number | null;
   error: string | null;
 }
 
 interface AppContextValue extends AppState {
   setRecipients: (r: Recipient[]) => void;
   setSelectedTemplate: (t: CardTemplate | null) => void;
+  setSelectedTemplateBlob: (b: Blob | null) => void;
   setTemplates: (t: CardTemplate[]) => void;
   setError: (e: string | null) => void;
   uploadCSV: (file: File) => Promise<void>;
@@ -35,10 +55,12 @@ interface AppContextValue extends AppState {
 const initialState: AppState = {
   recipients: [],
   selectedTemplate: null,
+  selectedTemplateBlob: null,
   templates: [],
   generatingRowIndex: null,
   previewImageUrl: null,
   previewRecipientName: null,
+  previewRowIndex: null,
   error: null,
 };
 
@@ -64,6 +86,10 @@ export function AppProvider({
     setState((s) => ({ ...s, selectedTemplate, error: null }));
   }, []);
 
+  const setSelectedTemplateBlob = useCallback((selectedTemplateBlob: Blob | null) => {
+    setState((s) => ({ ...s, selectedTemplateBlob }));
+  }, []);
+
   const setTemplates = useCallback((templates: CardTemplate[]) => {
     setState((s) => ({ ...s, templates }));
   }, []);
@@ -84,21 +110,21 @@ export function AppProvider({
     } catch (e) {
       setState((s) => ({
         ...s,
-        error: e instanceof Error ? e.message : 'Invalid CSV',
+        error: errorToMessage(e) || 'Invalid CSV',
       }));
     }
   }, []);
 
   const generateGreetingForRecipient = useCallback(async (index: number) => {
-    const { recipients, selectedTemplate } = state;
+    const { recipients, selectedTemplate, selectedTemplateBlob } = state;
     const r = recipients[index];
     const t = selectedTemplate;
 
-    if (!r || !t) {
+    if (!r || !t || !selectedTemplateBlob) {
       setState((s) => ({
         ...s,
         generatingRowIndex: null,
-        error: !t ? 'Please upload a template image first.' : s.error,
+        error: !t || !selectedTemplateBlob ? 'Please upload a template image first.' : s.error,
       }));
       return;
     }
@@ -179,12 +205,8 @@ export function AppProvider({
     };
 
     try {
-      // Convert the selected template background URL to a Blob
-      const response = await fetch(t.background);
-      const blob = await response.blob();
-
       const imageUrl = await generateEditedImage({
-        image: blob,
+        image: selectedTemplateBlob,
         prompt: buildPrompt(),
         // defaults for lora/seed/steps/guidance are handled in the service
       });
@@ -197,12 +219,16 @@ export function AppProvider({
         generatingRowIndex: null,
         previewImageUrl: imageUrl,
         previewRecipientName: r.name,
+        previewRowIndex: index,
       }));
     } catch (e) {
+      // Log full error for debugging (keeps UI concise)
+      // eslint-disable-next-line no-console
+      console.error('Image generation failed:', e);
       setState((s) => ({
         ...s,
         generatingRowIndex: null,
-        error: e instanceof Error ? e.message : 'Image generation failed',
+        error: errorToMessage(e) || 'Image generation failed',
       }));
     }
   }, [state]);
@@ -219,6 +245,7 @@ export function AppProvider({
       ...state,
       setRecipients,
       setSelectedTemplate,
+      setSelectedTemplateBlob,
       setTemplates,
       setError,
       uploadCSV,
@@ -229,6 +256,7 @@ export function AppProvider({
       state,
       setRecipients,
       setSelectedTemplate,
+      setSelectedTemplateBlob,
       setTemplates,
       setError,
       uploadCSV,

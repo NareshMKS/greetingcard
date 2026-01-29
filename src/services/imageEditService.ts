@@ -1,6 +1,17 @@
 import { Client } from "@gradio/client";
 
 const SPACE_ID = "prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast";
+const SPACE_ORIGIN = "https://prithivMLmods-qwen-image-edit-2511-loras-fast.hf.space";
+
+function normalizeSpaceUrl(url: string): string {
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  if (trimmed.startsWith("/")) return `${SPACE_ORIGIN}${trimmed}`;
+  // Sometimes Gradio returns "file=..." without a leading slash
+  if (trimmed.startsWith("file=")) return `${SPACE_ORIGIN}/${trimmed}`;
+  return trimmed;
+}
 
 export interface ImageEditRequest {
   image: Blob;
@@ -25,7 +36,12 @@ export async function generateEditedImage({
   guidanceScale = 1,
   steps = 4,
 }: ImageEditRequest): Promise<string> {
-  const client = await Client.connect(SPACE_ID);
+  let client: any;
+  try {
+    client = await Client.connect(SPACE_ID);
+  } catch (e) {
+    throw new Error(`Failed to connect to HF Space: ${normalizeSpaceUrl(String(SPACE_ORIGIN))}`);
+  }
 
   const payload = {
     images: [
@@ -42,7 +58,17 @@ export async function generateEditedImage({
     steps,
   };
 
-  const result = await client.predict("/infer", payload as any);
+  let result: any;
+  try {
+    result = await client.predict("/infer", payload as any);
+  } catch (e: any) {
+    const msg =
+      (typeof e?.message === "string" && e.message) ||
+      (typeof e?.error === "string" && e.error) ||
+      (typeof e === "string" && e) ||
+      "";
+    throw new Error(msg || "Image generation failed during /infer call.");
+  }
   const data = (result as any)?.data ?? [];
   const imageResult = Array.isArray(data) ? data[0] : data;
 
@@ -54,6 +80,8 @@ export async function generateEditedImage({
   } else if (imageResult?.path) {
     url = imageResult.path;
   }
+
+  url = normalizeSpaceUrl(url);
 
   if (!url) {
     throw new Error("Image generation failed: no image URL returned.");

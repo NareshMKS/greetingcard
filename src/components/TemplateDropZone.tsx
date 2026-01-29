@@ -48,10 +48,13 @@ function TemplatePreviewModal({
             </svg>
           </button>
         </div>
-        <div
-          className="mx-auto w-full aspect-[3/4] max-h-[320px] rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden bg-slate-100 dark:bg-slate-800"
-          style={{ backgroundImage: `url(${imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-        />
+        <div className="mx-auto w-full rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+          <img
+            src={imageUrl}
+            alt="Template preview"
+            className="w-full h-auto max-h-[70vh] object-contain"
+          />
+        </div>
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
           This image will be used as the greeting card background. Use it?
         </p>
@@ -77,14 +80,15 @@ function TemplatePreviewModal({
 }
 
 export function TemplateDropZone() {
-  const { selectedTemplate, setSelectedTemplate, setTemplates, setError } = useApp();
+  const { selectedTemplate, setSelectedTemplate, setSelectedTemplateBlob, setTemplates, setError } = useApp();
   const [isDragOver, setIsDragOver] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const hasTemplate = selectedTemplate != null;
 
   const confirmTemplate = useCallback(() => {
-    if (!pendingUrl) return;
+    if (!pendingUrl || !pendingFile) return;
     const t: CardTemplate = {
       id: 'template-' + String(Date.now()),
       name: 'Greeting card template',
@@ -97,12 +101,15 @@ export function TemplateDropZone() {
     };
     setTemplates([t]);
     setSelectedTemplate(t);
+    setSelectedTemplateBlob(pendingFile);
     setPendingUrl(null);
-  }, [pendingUrl, setTemplates, setSelectedTemplate]);
+    setPendingFile(null);
+  }, [pendingUrl, pendingFile, setTemplates, setSelectedTemplate, setSelectedTemplateBlob]);
 
   const cancelPreview = useCallback(() => {
     if (pendingUrl) URL.revokeObjectURL(pendingUrl);
     setPendingUrl(null);
+    setPendingFile(null);
   }, [pendingUrl]);
 
   const addFromFile = useCallback(
@@ -114,6 +121,7 @@ export function TemplateDropZone() {
       setError(null);
       if (pendingUrl) URL.revokeObjectURL(pendingUrl);
       setPendingUrl(URL.createObjectURL(file));
+      setPendingFile(file);
     },
     [setError, pendingUrl]
   );
