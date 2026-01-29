@@ -10,9 +10,9 @@ import { RecipientsTable } from './components/RecipientsTable';
  * Scrolls to the next step after each action; one coherent visual flow.
  */
 export default function App() {
-  const { recipients, selectedTemplate, error, previewImageUrl } = useApp();
+  const { recipients, templates, error, previewImageUrl } = useApp();
   const hasCsv = recipients.length > 0;
-  const hasTemplate = selectedTemplate != null;
+  const hasTemplate = templates.length > 0;
 
   const templateSectionRef = useRef<HTMLElement | null>(null);
   const tableSectionRef = useRef<HTMLElement | null>(null);
@@ -98,10 +98,10 @@ export default function App() {
                 Step 2
               </span>
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mt-1">
-                Upload greeting card template
+                Upload greeting card templates (up to 5)
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Use an image as the card background
+                Use images as card backgrounds. Templates rotate per recipient when you Generate all.
               </p>
             </div>
             <div className="p-5 pt-2">
@@ -158,7 +158,7 @@ const GeneratedImagePreview = React.forwardRef<HTMLDivElement, {}>((_props, ref)
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
 
-      const templateId = r.templateId || selectedTemplate?.id || 'template';
+      const templateId = r.usedTemplateId || r.templateId || selectedTemplate?.id || 'template';
       const safeName = (r.name || 'recipient').replace(/[^a-zA-Z0-9]/g, '_');
       const safeOccasion = (r.occasion || 'occasion').replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `${templateId}_${safeName}_${safeOccasion}.png`;

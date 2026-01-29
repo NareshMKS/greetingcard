@@ -7,6 +7,7 @@ import { useApp } from '../context/AppContext';
 export function RecipientsTable() {
   const {
     recipients,
+    templates,
     generatingRowIndex,
     isBulkGenerating,
     generateGreetingForRecipient,
@@ -25,7 +26,7 @@ export function RecipientsTable() {
           <button
             type="button"
             onClick={() => void generateAllGreetings()}
-            disabled={isBulkGenerating || generatingRowIndex !== null || recipients.length === 0}
+            disabled={isBulkGenerating || generatingRowIndex !== null || recipients.length === 0 || templates.length === 0}
             className="inline-flex items-center gap-2 rounded-lg border border-violet-500/70 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-violet-400 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/50"
           >
             {isBulkGenerating ? (

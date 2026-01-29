@@ -26,4 +26,6 @@ export interface Recipient {
   generatedGreeting?: string;
   /** URL of generated image for this row (if any) */
   generatedImageUrl?: string;
+  /** Template id used when generating this row (set during generate) */
+  usedTemplateId?: string;
 }

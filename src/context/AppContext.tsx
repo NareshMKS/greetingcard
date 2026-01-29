@@ -30,9 +30,12 @@ function errorToMessage(err: unknown): string {
 export interface AppState {
   recipients: Recipient[];
   selectedTemplate: CardTemplate | null;
-  /** Blob of the uploaded template image (used for generation) */
+  /** Blob of the uploaded template image (used for single-row generation) */
   selectedTemplateBlob: Blob | null;
+  /** User-uploaded templates (max 5). Used round-robin in Generate all. */
   templates: CardTemplate[];
+  /** Blobs for each template in templates (same length as templates) */
+  templateBlobs: Blob[];
   generatingRowIndex: number | null;
   /** True while running \"Generate all\" */
   isBulkGenerating: boolean;
@@ -48,6 +51,9 @@ interface AppContextValue extends AppState {
   setSelectedTemplate: (t: CardTemplate | null) => void;
   setSelectedTemplateBlob: (b: Blob | null) => void;
   setTemplates: (t: CardTemplate[]) => void;
+  setTemplateBlobs: (b: Blob[]) => void;
+  addTemplate: (template: CardTemplate, blob: Blob) => void;
+  removeTemplate: (index: number) => void;
   setError: (e: string | null) => void;
   uploadCSV: (file: File) => Promise<void>;
   generateGreetingForRecipient: (index: number) => Promise<void>;
@@ -60,6 +66,7 @@ const initialState: AppState = {
   selectedTemplate: null,
   selectedTemplateBlob: null,
   templates: [],
+  templateBlobs: [],
   generatingRowIndex: null,
   isBulkGenerating: false,
   previewImageUrl: null,
@@ -98,6 +105,40 @@ export function AppProvider({
     setState((s) => ({ ...s, templates }));
   }, []);
 
+  const setTemplateBlobs = useCallback((templateBlobs: Blob[]) => {
+    setState((s) => ({ ...s, templateBlobs }));
+  }, []);
+
+  const addTemplate = useCallback((template: CardTemplate, blob: Blob) => {
+    setState((s) => {
+      if (s.templates.length >= 5) return s;
+      return {
+        ...s,
+        templates: [...s.templates, template],
+        templateBlobs: [...s.templateBlobs, blob],
+        selectedTemplate: template,
+        selectedTemplateBlob: blob,
+        error: null,
+      };
+    });
+  }, []);
+
+  const removeTemplate = useCallback((index: number) => {
+    setState((s) => {
+      if (index < 0 || index >= s.templates.length) return s;
+      const templates = s.templates.filter((_, i) => i !== index);
+      const templateBlobs = s.templateBlobs.filter((_, i) => i !== index);
+      const removedWasSelected = s.selectedTemplate === s.templates[index];
+      return {
+        ...s,
+        templates,
+        templateBlobs,
+        selectedTemplate: removedWasSelected ? (templates[0] ?? null) : s.selectedTemplate,
+        selectedTemplateBlob: removedWasSelected ? (templateBlobs[0] ?? null) : s.selectedTemplateBlob,
+      };
+    });
+  }, []);
+
   const setError = useCallback((error: string | null) => {
     setState((s) => ({ ...s, error }));
   }, []);
@@ -120,14 +161,14 @@ export function AppProvider({
   }, []);
 
   const generateAllGreetings = useCallback(async () => {
-    const { recipients, selectedTemplate, selectedTemplateBlob } = state;
+    const { recipients, templates, templateBlobs } = state;
     if (!recipients.length) return;
-    if (!selectedTemplate || !selectedTemplateBlob) {
+    if (!templates.length || templates.length !== templateBlobs.length) {
       setState((s) => ({
         ...s,
         isBulkGenerating: false,
         generatingRowIndex: null,
-        error: 'Please upload a template image first.',
+        error: 'Please upload at least one template image (up to 5).',
       }));
       return;
     }
@@ -140,6 +181,9 @@ export function AppProvider({
     }));
 
     for (let i = 0; i < recipients.length; i++) {
+      const templateIndex = i % templates.length;
+      const template = templates[templateIndex];
+      const templateBlob = templateBlobs[templateIndex];
       const r = recipients[i];
       const occ = r.occasion.trim().toLowerCase();
       const receiver = r.name || 'Friend';
@@ -214,15 +258,17 @@ export function AppProvider({
 
       try {
         const imageUrl = await generateEditedImage({
-          image: selectedTemplateBlob,
+          image: templateBlob,
           prompt: buildPrompt(),
         });
 
         // Update row and preview
-          setState((s) => ({
-            ...s,
+        setState((s) => ({
+          ...s,
           recipients: s.recipients.map((rec, idx) =>
-            idx === i ? { ...rec, generatedImageUrl: imageUrl } : rec
+            idx === i
+              ? { ...rec, generatedImageUrl: imageUrl, usedTemplateId: template.id }
+              : rec
           ),
           generatingRowIndex: i + 1 < recipients.length ? i + 1 : null,
           previewImageUrl: imageUrl,
@@ -231,7 +277,7 @@ export function AppProvider({
         }));
 
         // Auto-download for this row
-        const templateId = r.templateId || selectedTemplate.id || 'template';
+        const templateId = r.templateId || template.id || 'template';
         const safeName = (r.name || 'recipient').replace(/[^a-zA-Z0-9]/g, '_');
         const safeOcc = (r.occasion || 'occasion').replace(/[^a-zA-Z0-9]/g, '_');
         const filename = `${templateId}_${safeName}_${safeOcc}.png`;
@@ -369,7 +415,9 @@ export function AppProvider({
       setState((s) => ({
         ...s,
         recipients: s.recipients.map((rec, i) =>
-          i === index ? { ...rec, generatedImageUrl: imageUrl } : rec
+          i === index
+            ? { ...rec, generatedImageUrl: imageUrl, usedTemplateId: t.id }
+            : rec
         ),
         generatingRowIndex: null,
         previewImageUrl: imageUrl,
@@ -402,6 +450,9 @@ export function AppProvider({
       setSelectedTemplate,
       setSelectedTemplateBlob,
       setTemplates,
+      setTemplateBlobs,
+      addTemplate,
+      removeTemplate,
       setError,
       uploadCSV,
       generateGreetingForRecipient,
@@ -414,6 +465,9 @@ export function AppProvider({
       setSelectedTemplate,
       setSelectedTemplateBlob,
       setTemplates,
+      setTemplateBlobs,
+      addTemplate,
+      removeTemplate,
       setError,
       uploadCSV,
       generateGreetingForRecipient,
