@@ -2,6 +2,7 @@ import { Client } from "@gradio/client";
 
 const SPACE_ID = "prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast";
 const SPACE_ORIGIN = "https://prithivMLmods-qwen-image-edit-2511-loras-fast.hf.space";
+const HF_TOKEN = import.meta.env.VITE_HF_TOKEN as string | undefined;
 
 function normalizeSpaceUrl(url: string): string {
   const trimmed = String(url || "").trim();
@@ -38,9 +39,18 @@ export async function generateEditedImage({
 }: ImageEditRequest): Promise<string> {
   let client: any;
   try {
-    client = await Client.connect(SPACE_ID);
+    if (!HF_TOKEN) {
+      throw new Error(
+        "Missing Hugging Face token (VITE_HF_TOKEN). Add it to your .env file to call the GPU Space."
+      );
+    }
+    // Cast options as any because current @gradio/client types don't expose hf_token on ClientOptions
+    client = await Client.connect(SPACE_ID, { hf_token: HF_TOKEN } as any);
   } catch (e) {
-    throw new Error(`Failed to connect to HF Space: ${normalizeSpaceUrl(String(SPACE_ORIGIN))}`);
+    const msg =
+      (e instanceof Error && e.message) ||
+      "Failed to connect to Hugging Face Space. Check your VITE_HF_TOKEN and network.";
+    throw new Error(msg);
   }
 
   const payload = {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as React from 'react';
 import { useApp } from './context/AppContext';
 import { CSVUploader } from './components/CSVUploader';
@@ -146,90 +146,81 @@ export default function App() {
 }
 
 const GeneratedImagePreview = React.forwardRef<HTMLDivElement, {}>((_props, ref) => {
-  const { previewImageUrl, previewRecipientName, previewRowIndex, recipients, selectedTemplate } = useApp();
-  const [downloading, setDownloading] = useState(false);
+  const { recipients, selectedTemplate } = useApp();
 
-  const handleDownload = async () => {
-    if (!previewImageUrl) return;
+  const generated = recipients.filter((r) => r.generatedImageUrl);
+  if (generated.length === 0) return null;
 
-    // Find the recipient that matches the preview (prefer exact row)
-    const recipient =
-      (previewRowIndex != null ? recipients[previewRowIndex] : undefined) ??
-      recipients.find((r) => r.name === previewRecipientName);
-    if (!recipient) return;
-
-    setDownloading(true);
+  const handleDownload = async (imageUrl: string, r: typeof generated[number]) => {
     try {
-      const response = await fetch(previewImageUrl);
-      const blob = await response.blob();
+      const resp = await fetch(imageUrl);
+      const blob = await resp.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      
-      // Format: templateId_recipientName_occasion.png
-      const templateId = recipient.templateId || selectedTemplate?.id || 'template';
-      const recipientName = recipient.name.replace(/[^a-zA-Z0-9]/g, '_');
-      const occasion = recipient.occasion.replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `${templateId}_${recipientName}_${occasion}.png`;
-      
+
+      const templateId = r.templateId || selectedTemplate?.id || 'template';
+      const safeName = (r.name || 'recipient').replace(/[^a-zA-Z0-9]/g, '_');
+      const safeOccasion = (r.occasion || 'occasion').replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `${templateId}_${safeName}_${safeOccasion}.png`;
+
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download failed:', error);
-    } finally {
-      setDownloading(false);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Download failed:', e);
     }
   };
 
-  if (!previewImageUrl) {
-    return null;
-  }
-
   return (
-    <div ref={ref} className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/40 p-6 scroll-mt-24">
+    <div
+      ref={ref}
+      className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/40 p-6 scroll-mt-24"
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-          Generated Image Preview
+          Generated Images
         </h3>
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          for {previewRecipientName || 'recipient'}
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {generated.length} image{generated.length !== 1 ? 's' : ''} generated
         </span>
       </div>
-      <div className="flex flex-col sm:flex-row gap-6 items-start">
-        <div className="flex-shrink-0 w-full sm:w-auto sm:max-w-md">
-          <div className="aspect-[3/4] w-full sm:w-64 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-sm">
-            <img
-              src={previewImageUrl}
-              alt="Generated greeting card"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-        <div className="flex-1 flex items-center">
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={downloading}
-            className="w-full sm:w-auto sm:min-w-[180px] rounded-lg bg-violet-600 px-6 py-3 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shadow-sm"
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {generated.map((r) => (
+          <div
+            key={r.id}
+            className="flex flex-col rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 overflow-hidden shadow-sm"
           >
-            {downloading ? (
-              <>
-                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Downloading...
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="aspect-[3/4] w-full bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+              <img
+                src={r.generatedImageUrl!}
+                alt={`Generated card for ${r.name}`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="p-3 space-y-1">
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                {r.name} — {r.occasion}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                templateId: {r.templateId || selectedTemplate?.id || 'template'}
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleDownload(r.generatedImageUrl!, r)}
+                className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-700 transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Download image
-              </>
-            )}
-          </button>
-        </div>
+                Download
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -8,7 +8,9 @@ export function RecipientsTable() {
   const {
     recipients,
     generatingRowIndex,
+    isBulkGenerating,
     generateGreetingForRecipient,
+    generateAllGreetings,
   } = useApp();
 
   if (recipients.length === 0) return null;
@@ -16,6 +18,28 @@ export function RecipientsTable() {
   return (
     <div className="w-full" aria-label="Recipients and actions">
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-800 shadow-sm">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            Recipients
+          </h3>
+          <button
+            type="button"
+            onClick={() => void generateAllGreetings()}
+            disabled={isBulkGenerating || generatingRowIndex !== null || recipients.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg border border-violet-500/70 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-violet-400 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/50"
+          >
+            {isBulkGenerating ? (
+              <>
+                <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                Generating all...
+              </>
+            ) : (
+              <>
+                Generate all images
+              </>
+            )}
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px]">
             <thead>

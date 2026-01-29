@@ -34,7 +34,9 @@ export interface AppState {
   selectedTemplateBlob: Blob | null;
   templates: CardTemplate[];
   generatingRowIndex: number | null;
-  /** Preview of the last generated image (right side panel) */
+  /** True while running \"Generate all\" */
+  isBulkGenerating: boolean;
+  /** Preview of the last generated image */
   previewImageUrl: string | null;
   previewRecipientName: string | null;
   previewRowIndex: number | null;
@@ -49,6 +51,7 @@ interface AppContextValue extends AppState {
   setError: (e: string | null) => void;
   uploadCSV: (file: File) => Promise<void>;
   generateGreetingForRecipient: (index: number) => Promise<void>;
+  generateAllGreetings: () => Promise<void>;
   reset: () => void;
 }
 
@@ -58,6 +61,7 @@ const initialState: AppState = {
   selectedTemplateBlob: null,
   templates: [],
   generatingRowIndex: null,
+  isBulkGenerating: false,
   previewImageUrl: null,
   previewRecipientName: null,
   previewRowIndex: null,
@@ -115,6 +119,157 @@ export function AppProvider({
     }
   }, []);
 
+  const generateAllGreetings = useCallback(async () => {
+    const { recipients, selectedTemplate, selectedTemplateBlob } = state;
+    if (!recipients.length) return;
+    if (!selectedTemplate || !selectedTemplateBlob) {
+      setState((s) => ({
+        ...s,
+        isBulkGenerating: false,
+        generatingRowIndex: null,
+        error: 'Please upload a template image first.',
+      }));
+      return;
+    }
+
+    setState((s) => ({
+      ...s,
+      isBulkGenerating: true,
+      generatingRowIndex: 0,
+      error: null,
+    }));
+
+    for (let i = 0; i < recipients.length; i++) {
+      const r = recipients[i];
+      const occ = r.occasion.trim().toLowerCase();
+      const receiver = r.name || 'Friend';
+      const sender = r.sender || 'Naresh';
+      const message = r.message || '';
+
+      const buildPrompt = (): string => {
+        if (occ.includes('birthday')) {
+          return `Add elegant birthday text to the existing image without altering the background or layout. ` +
+            `Main heading text: “Happy Birthday ${receiver}” — styled in a classy, celebratory font with a refined and modern look. ` +
+            `Subtext message: “${message || 'May God bless you with joy, good health, and great success in all that you do.'}” ` +
+            `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
+            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+            `Maintain high readability, professional spacing, and a premium birthday greeting aesthetic. Do not modify or replace the original background.`;
+        }
+        if (occ.includes('promotion')) {
+          return `Add elegant congratulatory text to the existing image without altering the background or layout. ` +
+            `Main heading text: “Congratulations on Your Promotion” — styled in a classy, professional font with a refined and modern corporate look. ` +
+            `Subtext message: “${message || 'Your dedication, hard work, and talent have truly paid off. Wishing you continued growth and success in your new role.'}” ` +
+            `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
+            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+            `Maintain high readability, professional spacing, and a premium congratulatory aesthetic. Do not modify or replace the original background.`;
+        }
+        if (occ.includes('festival')) {
+          return `Add elegant festive greeting text to the existing image without altering the background or layout. ` +
+            `Main heading text: “Warm Festival Wishes” — styled in a classy, celebratory font with a refined and modern festive look. ` +
+            `Subtext message: “${message || 'May this festive season fill your life with happiness, peace, and prosperity.'}” ` +
+            `Closing line: “With warm regards from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
+            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+            `Maintain high readability, professional spacing, and a premium festive greeting aesthetic. Do not modify or replace the original background.`;
+        }
+        if (occ.includes('newyear') || occ.includes('new year')) {
+          return `Add elegant New Year greeting text to the existing image without altering the background or layout. ` +
+            `Main heading text: “Happy New Year 2026” — styled in a classy, celebratory font with a refined and modern look. ` +
+            `Subtext message: “${message || 'May the new year bring new opportunities, good health, happiness, and success in every step of your journey.'}” ` +
+            `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
+            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+            `Maintain high readability, professional spacing, and a premium New Year greeting aesthetic. Do not modify or replace the original background.`;
+        }
+        if (occ.includes('christmas')) {
+          return `Add elegant Christmas greeting text to the existing image without altering the background or layout. ` +
+            `Main heading text: “Merry Christmas” — styled in a classy, warm, and festive font with a refined modern look. ` +
+            `Subtext message: “${message || 'May this Christmas bring you joy, peace, love, and beautiful moments with your loved ones.'}” ` +
+            `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
+            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+            `Maintain high readability, professional spacing, and a premium Christmas greeting aesthetic. Do not modify or replace the original background.`;
+        }
+        if (occ.includes('anniversary')) {
+          return `Add elegant anniversary greeting text to the existing image without altering the background or layout. ` +
+            `Main heading text: “Happy Anniversary” — styled in a classy, romantic font with a refined and modern look. ` +
+            `Subtext message: “${message || 'Wishing you both a lifetime of love, understanding, and beautiful memories together.'}” ` +
+            `Closing line: “Warm wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
+            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+            `Maintain high readability, professional spacing, and a premium anniversary greeting aesthetic. Do not modify or replace the original background.`;
+        }
+        if (occ.includes('congratulations') || occ.includes('congrats')) {
+          return `Add elegant congratulatory text to the existing image without altering the background or layout. ` +
+            `Main heading text: “Congratulations” — styled in a classy, confident font with a refined and modern look. ` +
+            `Subtext message: “${message || 'Your achievement is a result of your dedication and perseverance. Wishing you continued success ahead.'}” ` +
+            `Closing line: “Best wishes from ${sender}” — placed neatly below the message in a subtle yet readable font. ` +
+            `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+            `Maintain high readability, professional spacing, and a premium congratulatory aesthetic. Do not modify or replace the original background.`;
+        }
+
+        return `Add elegant greeting text for ${occ || 'a special occasion'} to the existing image without altering the background or layout. ` +
+          `Main heading text should include the name “${receiver}”. ` +
+          `Subtext message: “${message || 'Warm wishes to you.'}” ` +
+          `Closing line: “Best wishes from ${sender}”. ` +
+          `Ensure the text is well-aligned, visually balanced, and blends naturally with the image. ` +
+          `Maintain high readability, professional spacing, and do not modify or replace the original background.`;
+      };
+
+      try {
+        const imageUrl = await generateEditedImage({
+          image: selectedTemplateBlob,
+          prompt: buildPrompt(),
+        });
+
+        // Update row and preview
+          setState((s) => ({
+            ...s,
+          recipients: s.recipients.map((rec, idx) =>
+            idx === i ? { ...rec, generatedImageUrl: imageUrl } : rec
+          ),
+          generatingRowIndex: i + 1 < recipients.length ? i + 1 : null,
+          previewImageUrl: imageUrl,
+          previewRecipientName: r.name,
+          previewRowIndex: i,
+        }));
+
+        // Auto-download for this row
+        const templateId = r.templateId || selectedTemplate.id || 'template';
+        const safeName = (r.name || 'recipient').replace(/[^a-zA-Z0-9]/g, '_');
+        const safeOcc = (r.occasion || 'occasion').replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${templateId}_${safeName}_${safeOcc}.png`;
+
+        try {
+          const resp = await fetch(imageUrl);
+          const blob = await resp.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error('Auto-download failed for row', i, e);
+        }
+      } catch (e) {
+        // Stop on first hard failure
+        setState((s) => ({
+          ...s,
+          isBulkGenerating: false,
+          generatingRowIndex: null,
+          error: errorToMessage(e) || 'Image generation failed',
+        }));
+        return;
+      }
+    }
+
+    // Finished all
+    setState((s) => ({
+      ...s,
+      isBulkGenerating: false,
+      generatingRowIndex: null,
+    }));
+  }, [state]);
   const generateGreetingForRecipient = useCallback(async (index: number) => {
     const { recipients, selectedTemplate, selectedTemplateBlob } = state;
     const r = recipients[index];
@@ -250,6 +405,7 @@ export function AppProvider({
       setError,
       uploadCSV,
       generateGreetingForRecipient,
+      generateAllGreetings,
       reset,
     }),
     [
@@ -261,6 +417,7 @@ export function AppProvider({
       setError,
       uploadCSV,
       generateGreetingForRecipient,
+      generateAllGreetings,
       reset,
     ]
   );
